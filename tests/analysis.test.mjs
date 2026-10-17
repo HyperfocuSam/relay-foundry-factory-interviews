@@ -4,9 +4,9 @@ import { createExample, paragraphs } from "../src/lib/interviews.ts";
 import { validateAnalysis } from "../src/lib/analysis.ts";
 import { analyze } from "../src/lib/server/llm.ts";
 const config = {
-  url: "https://example.test/v1/chat/completions",
-  key: "test-vkey-not-real",
-  model: "vllm-qwen3-6-35b-a3b/qwen3.6-35b-a3b",
+  url: "https://example.test/v1beta/models/gemini-test:generateContent",
+  key: "test-gemini-key",
+  model: "gemini-test",
 };
 function fixture() {
   const session = createExample();
@@ -31,35 +31,6 @@ const completion = (result) =>
       { finish_reason: "stop", message: { content: JSON.stringify(result) } },
     ],
   });
-test("analysis uses Bifrost virtual-key header, selected evidence and exact model", async () => {
-  const { session, source, result } = fixture();
-  const draft = await analyze(
-    session,
-    [source.id],
-    config,
-    async (url, options) => {
-      assert.equal(url, config.url);
-      assert.equal(options.headers["x-bf-vk"], config.key);
-      assert.equal(options.headers.Authorization, undefined);
-      assert.equal(options.redirect, "error");
-      const body = JSON.parse(options.body);
-      assert.equal(body.model, config.model);
-      assert.equal(body.stream, false);
-      assert.equal(body.response_format.type, "json_object");
-      assert.ok(body.messages[1].content.includes(source.id));
-      assert.ok(!body.messages[1].content.includes(config.key));
-      return completion(result);
-    },
-  );
-  assert.equal(draft.revision, session.revision);
-  assert.match(draft.steps[0].id, /^[a-f0-9]{32}$/);
-  assert.equal(
-    session.steps.length,
-    2,
-    "analysis does not mutate reviewed steps",
-  );
-  assert.equal(draft.steps[0].confirmedBy, undefined);
-});
 test("rejects invented quotes, sources, paragraphs, and excessive suggestions", () => {
   const { session, source, result } = fixture();
   for (const change of [

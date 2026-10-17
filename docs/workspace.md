@@ -32,4 +32,4 @@ Audio/video recording, automatic voice transcription, automated document compari
 
 `npm test` covers review rules and exports. `npm run test:db` verifies migrations, persistence and sign-in against a disposable database. Also run lint, type checks, production build and browser tests for sign-in, shared sessions, import/review/export, concurrent edits and sign-out.
 
-See [AI analysis setup](ai-analysis.md) for Bifrost configuration and review limits.
+See [AI analysis setup](ai-analysis.md) for Gemini configuration and review limits.

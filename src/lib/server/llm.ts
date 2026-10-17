@@ -4,42 +4,13 @@ import { validateAnalysis, type Analysis } from "../analysis.ts";
 import { reportSchema } from "./report-schema.ts";
 import { geminiGateway } from "./gemini-gateway.ts";
 export class AnalysisError extends Error {}
-type LlmConfig = { url: string; key: string; model: string; gatewayKey?: string; provider?: "gemini" | "bifrost" };
+type LlmConfig = { url: string; key: string; model: string; gatewayKey?: string; provider?: "gemini" };
 export function llmConfig() {
-  const base = process.env.QWEN_BASE_URL || process.env.LLM_BASE_URL;
-  const key = process.env.QWEN_BIFROST_VIRTUAL_KEY || process.env.BIFROST_VIRTUAL_KEY;
-  const model = process.env.QWEN_MODEL || process.env.LLM_MODEL;
-  const legacyProvider = process.env.LLM_PROVIDER;
-  if (!process.env.AI_ANALYSIS_PROVIDER && legacyProvider &&
-      !["bifrost", "gemini"].includes(legacyProvider))
-    throw new AnalysisError("Legacy LLM_PROVIDER must be bifrost or gemini.");
-  const provider = process.env.AI_ANALYSIS_PROVIDER ||
-    (legacyProvider === "bifrost" ? "qwen" : legacyProvider) ||
-    (base || key || model ? "qwen" : process.env.GEMINI_API_KEY || process.env.GEMINI_MODEL ? "gemini" : "qwen");
-  if (provider === "gemini") {
-    const key = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL;
-    if (!key || !model || !/^gemini-[a-zA-Z0-9.-]+$/.test(model))
-      throw new AnalysisError("Gemini is not configured. Set GEMINI_API_KEY and a valid GEMINI_MODEL on the server.");
-    return { provider: "gemini" as const, key, model, ...geminiGateway(model) };
-  }
-  if (provider !== "qwen") throw new AnalysisError("Set AI_ANALYSIS_PROVIDER to qwen or gemini (legacy LLM_PROVIDER accepts bifrost or gemini).");
-  if (!base || !key || !model)
-    throw new AnalysisError(
-      "Qwen analysis is not configured. Set QWEN_BASE_URL, QWEN_MODEL and QWEN_BIFROST_VIRTUAL_KEY on the server.",
-    );
-  const url = new URL(base);
-  if (
-    !["https:", "http:"].includes(url.protocol) ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash
-  )
-    throw new AnalysisError("Invalid QWEN_BASE_URL configuration.");
-  const path = url.pathname.replace(/\/$/, "");
-  url.pathname = (path || "/v1") + "/chat/completions";
-  return { provider: "bifrost" as const, url: url.toString(), key, model };
+  const key = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL;
+  if (!key || !model || !/^gemini-[a-zA-Z0-9.-]+$/.test(model))
+    throw new AnalysisError("Gemini is not configured. Set GEMINI_API_KEY and a valid GEMINI_MODEL on the server.");
+  return { provider: "gemini" as const, key, model, ...geminiGateway(model) };
 }
 export async function analyze(
   session: Session,
@@ -50,8 +21,7 @@ export async function analyze(
   const sources = session.sources.filter((s) => sourceIds.includes(s.id));
   if (!sources.length || sources.length !== sourceIds.length)
     throw new AnalysisError("Choose valid saved sources first.");
-  const gemini = config.provider === "gemini";
-  if (gemini && !sources.some((source) => source.kind === "transcript"))
+  if (!sources.some((source) => source.kind === "transcript"))
     throw new AnalysisError("Choose at least one saved transcript to draft a meeting report.");
   const input = {
     objective: session.objective,
@@ -77,25 +47,15 @@ export async function analyze(
       method: "POST",
       redirect: "error",
       signal: AbortSignal.timeout(60000),
-      headers: { "Content-Type": "application/json", ...(gemini ? { "x-goog-api-key": config.key,
-        ...(config.gatewayKey ? { "x-ai-cup-gateway-key": config.gatewayKey } : {}) } : { "x-bf-vk": config.key }) },
-      body: JSON.stringify(gemini ? {
+      headers: { "Content-Type": "application/json", "x-goog-api-key": config.key,
+        ...(config.gatewayKey ? { "x-ai-cup-gateway-key": config.gatewayKey } : {}) },
+      body: JSON.stringify({
         systemInstruction: { parts: [{ text: reportInstruction }] },
         contents: [{ role: "user", parts: [{ text: content }] }],
         generationConfig: {
           temperature: 0.2, maxOutputTokens: 8192,
-          responseFormat: { text: { mimeType: "APPLICATION_JSON", schema: reportSchema } },
+          responseMimeType: "application/json", responseJsonSchema: reportSchema,
         },
-      } : {
-        model: config.model,
-        stream: false,
-        temperature: 0.2,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: instruction },
-          { role: "user", content },
-        ],
       }),
     });
     if (!response.ok) {
@@ -124,15 +84,12 @@ export async function analyze(
       chunks.push(value);
     }
     const payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const choice = payload.choices?.[0];
     const candidate = payload.candidates?.[0];
     const parts = candidate?.content?.parts;
-    const output = gemini
-      ? (Array.isArray(parts) && parts.every((part) => typeof part.text === "string")
-          ? parts.filter((part) => !part.thought).map((part) => part.text).join("") : undefined)
-      : choice?.message?.content;
+    const output = (Array.isArray(parts) && parts.every((part) => typeof part.text === "string")
+          ? parts.filter((part) => !part.thought).map((part) => part.text).join("") : undefined);
     if (
-      (gemini ? candidate?.finishReason !== "STOP" : choice?.finish_reason !== "stop") ||
+      candidate?.finishReason !== "STOP" ||
       typeof output !== "string" || !output.trim()
     )
       throw new AnalysisError(
@@ -143,7 +100,7 @@ export async function analyze(
       session,
       sourceIds,
     );
-    if (gemini && !result.report) throw new AnalysisError("Gemini returned no report draft. Retry without changing your saved interview.");
+    if (!result.report) throw new AnalysisError("Gemini returned no report draft. Retry without changing your saved interview.");
     return {
       id: randomBytes(16).toString("hex"),
       revision: session.revision,

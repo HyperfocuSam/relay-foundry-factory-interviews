@@ -51,7 +51,7 @@ export function AnalysisPanel({
         : "Choose saved sources to send to your configured AI service. Suggestions need your review before they become workflow drafts."}
     >
       {loading && <p role="status">Loading AI service and saved drafts…</p>}
-      {!loading && !service && <p className="notice">AI is not configured. Ask the administrator to configure Gemini or Bifrost; saved drafts and manual review remain available.</p>}
+      {!loading && !service && <p className="notice">AI is not configured. Ask the administrator to configure Gemini; saved drafts and manual review remain available.</p>}
       <fieldset disabled={busy || loading || !service} className="form-stack" aria-busy={busy}>
         <legend>Sources to analyze</legend>
         {session.sources.map((source) => (

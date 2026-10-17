@@ -8,6 +8,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN npm run build
 
+# One-off migrations/account provisioning, separate from the web runtime.
+FROM dependencies AS setup
+COPY scripts ./scripts
+COPY db ./db
+COPY src/lib/server/auth.ts ./src/lib/server/auth.ts
+USER node
+CMD ["node", "scripts/migrate.mjs"]
+
 FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \

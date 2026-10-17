@@ -37,7 +37,8 @@ test("Gemini drafts a cited report with native structured output and preserves r
     assert.equal(options.headers["x-bf-vk"], undefined);
     assert.equal(options.redirect, "error");
     const body = JSON.parse(options.body);
-    assert.ok(body.generationConfig.responseFormat.text.schema.required.includes("report"));
+    assert.equal(body.generationConfig.responseMimeType, "application/json");
+    assert.ok(body.generationConfig.responseJsonSchema.required.includes("report"));
     assert.ok(body.contents[0].parts[0].text.includes(source.id));
     assert.ok(!options.body.includes(config.key));
     assert.match(body.systemInstruction.parts[0].text, /inference, never an approval/);
@@ -131,14 +132,13 @@ test("provider configuration selects Gemini without falling back after partial c
     assert.deepEqual(llmConfig(), config);
     process.env.GEMINI_MODEL = "../invalid";
     assert.throws(llmConfig, /Gemini is not configured/);
-    process.env.LLM_PROVIDER = "unsupported";
-    assert.throws(llmConfig, /LLM_PROVIDER/);
+    process.env.GEMINI_MODEL = config.model;
+    process.env.AI_ANALYSIS_PROVIDER = "qwen";
     process.env.LLM_PROVIDER = "bifrost";
     process.env.LLM_BASE_URL = "https://example.test/v1";
     process.env.LLM_MODEL = "qwen";
     process.env.BIFROST_VIRTUAL_KEY = "fake-bifrost-key";
-    assert.equal(llmConfig().provider, "bifrost");
-    assert.equal(llmConfig().key, "fake-bifrost-key");
+    assert.deepEqual(llmConfig(), config, "Retired provider settings cannot route away from Gemini");
   } finally {
     for (const name of names) {
       if (original[name] === undefined) delete process.env[name];

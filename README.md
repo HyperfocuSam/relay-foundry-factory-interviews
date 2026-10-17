@@ -24,27 +24,25 @@ Factory Interviews helps a team capture how a factory process really works, chec
 - Next.js 16 (App Router, standalone output) on Node 24, packaged by the included `Dockerfile`.
 - Google Cloud Run (app), Cloud SQL for PostgreSQL (sessions, team sign-in), Secret Manager (keys), Artifact Registry and Cloud Build (images).
 - LiveKit for optional live calls. Without LiveKit configured, the call shows "not configured" and the rest of the app still works.
-- An optional Qwen provider (OpenAI-compatible gateway) is kept for workflow suggestions. The live deployment uses Gemini only (`AI_ANALYSIS_PROVIDER=gemini`).
+- Gemini is the only AI provider.
 
-## Run locally
+## Run locally (Docker Compose)
 
 ```bash
-cp .env.example .env.local   # fill in DATABASE_URL, APP_ORIGIN=http://localhost:3000, GEMINI_API_KEY, GEMINI_MODEL
-npm ci
-npm run db:migrate
-BOOTSTRAP_ADMIN_EMAIL=you@example.com BOOTSTRAP_ADMIN_PASSWORD='a-long-password' npm run db:create-user
-npm run dev                  # http://localhost:3000/login
+cp .env.example .env         # replace both passwords and the sign-in email; add GEMINI_API_KEY / GEMINI_MODEL for AI
+docker compose up --build -d # Postgres, then migrations + first account, then the app
+open http://localhost:3000/login
 ```
 
-Checks: `npm run lint`, `npm run type-check`, `npm test`, `npm run build`.
+Without Docker, follow [database setup](docs/database.md). Checks: `npm run lint`, `npm run type-check`, `npm test`, `npm run build`.
 
 ## Deploy to Cloud Run
 
-See `deploy/cloudrun/`: `cloudbuild.app.yaml` (app image from the root `Dockerfile`), and `Dockerfile.migrate` plus `cloudbuild.migrate.yaml` (a one-off Cloud Run Job that applies `db/migrations` and creates the first sign-in account). Runtime variables are listed in `.env.example`. `APP_ORIGIN` must equal the public service URL exactly.
+See `deploy/cloudrun/`: `cloudbuild.app.yaml` (app image from the root `Dockerfile`), and `Dockerfile.migrate` plus `cloudbuild.migrate.yaml` (a one-off Cloud Run Job that applies `db/migrations` and creates the first sign-in account). Cloud Run runtime variables are listed in `deploy/cloudrun/env.cloudrun.example`; see also [the handover guide](docs/handover.md). The root `Dockerfile` also has a `setup` target for migrations. `APP_ORIGIN` must equal the public service URL exactly.
 
 ## Docs
 
-[Product scope](docs/product-scope.md) · [Workspace](docs/workspace.md) · [Meetings](docs/meetings.md) · [AI analysis](docs/ai-analysis.md) · [Database](docs/database.md)
+[Product scope](docs/product-scope.md) · [Handover](docs/handover.md) · [Workspace](docs/workspace.md) · [Meetings](docs/meetings.md) · [AI analysis](docs/ai-analysis.md) · [Database](docs/database.md)
 
 ## Credits and licence
 
