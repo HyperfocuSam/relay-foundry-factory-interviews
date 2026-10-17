@@ -1,0 +1,8 @@
+# App image from the repo's own Dockerfile (unchanged). Commit pinned by the caller via _COMMIT.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "Dockerfile", "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/relay-foundry/app:${_COMMIT}", "."]
+substitutions:
+  _COMMIT: main
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/relay-foundry/app:${_COMMIT}

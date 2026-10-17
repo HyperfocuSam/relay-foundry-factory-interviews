@@ -1,0 +1,12 @@
+# One-off migration + bootstrap-user image for a Cloud Run Job.
+# Mirrors the repo's own CI "migrate-database" job (node:24-alpine, npm ci --omit=dev --ignore-scripts).
+# Build from the repo root: docker build -f deploy/cloudrun/Dockerfile.migrate .
+FROM node:24-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+COPY db ./db
+COPY scripts ./scripts
+COPY src/lib/server/auth.ts ./src/lib/server/auth.ts
+USER node
+CMD ["sh", "-c", "npm run db:migrate && npm run db:create-user"]

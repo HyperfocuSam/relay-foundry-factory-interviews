@@ -1,0 +1,6 @@
+# gcloud builds submit --project=<PROJECT_ID> --region=us-central1 --config=cloudbuild.migrate.yaml .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "deploy/cloudrun/Dockerfile.migrate", "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/relay-foundry/migrate:latest", "."]
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/relay-foundry/migrate:latest
